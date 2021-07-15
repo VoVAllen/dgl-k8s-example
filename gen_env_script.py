@@ -35,8 +35,8 @@ def generate_ip_config():
     env_dict["MASTER_ADDRESS"] = ip_list[0]
     env_dict["DGL_IP_CONFIG"] = str(ip_config_path)
 
-    num_trainers = os.environ["DGL_NUM_TRAINER"]
-    num_samplers = os.environ["DGL_NUM_SAMPLER"]
+    num_trainers = int(os.environ["DGL_NUM_TRAINER"])
+    num_samplers = int(os.environ["DGL_NUM_SAMPLER"])
     env_dict["DGL_NUM_CLIENT"] = num_trainers * (1 + num_samplers) * len(domain_port_list)
     print("Finished resolving domain")
     return env_dict
