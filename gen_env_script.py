@@ -47,6 +47,7 @@ def generate_dgl_related_env():
 
 env_dict = generate_ip_config()
 script_output = Path("env.sh")
-for k,v in env_dict:
-    with open(script_output, "w") as f:
+
+with open(script_output, "w") as f:
+    for k,v in env_dict.items():
         f.write(f"export {k}={v} \n")
