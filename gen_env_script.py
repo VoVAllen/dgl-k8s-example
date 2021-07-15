@@ -7,6 +7,7 @@ from pathlib import Path
 
 def generate_ip_config():
     base_dir = Path("/dgl-k8s/")
+    base_dir.mkdir()
     env_dict = {}
     assert "TF_CONFIG" in os.environ
     print(os.environ["TF_CONFIG"])
