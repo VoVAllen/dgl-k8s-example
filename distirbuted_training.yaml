@@ -1,0 +1,85 @@
+apiVersion: "kubeflow.org/v1"
+kind: "TFJob"
+metadata:
+  name: "dgl-dist-train-demo"
+spec:
+  tfReplicaSpecs:
+    PS:
+      replicas: 4
+      restartPolicy: Never
+      template:
+        metadata:
+          labels:
+            dgl-test: dist
+        spec:      
+          volumes:
+          - name: partition-efs
+            persistentVolumeClaim:
+              claimName: efs-dist-demo
+          - name: dshm
+            emptyDir:
+              medium: Memory
+          containers:
+            - name: tensorflow
+              image: public.ecr.aws/s1o7b3d9/benchmakrk_pyg_dgl:cu111_torch181_pyg170              
+              volumeMounts:
+              - name: partition-efs
+                mountPath: /root/data
+              - name: dshm
+                mountPath: /dev/shm    
+              ports:
+              - containerPort: 30051
+                name: dist-port1
+              - containerPort: 30050
+                name: dist-port2
+              env: 
+              - name: DGL_NUM_TRAINER
+                value: "1"
+              - name: DGL_NUM_SAMPLER
+                value: "0"
+              - name: DGL_NUM_SERVER
+                value: "1"
+              - name: OMP_NUM_THREADS
+                value: "24"
+              args: 
+              - "bash"
+              - "-c"
+              - |
+                # sleep 1h
+                echo $TF_CONFIG
+                sleep 10s
+                pip install --pre dgl -f https://data.dgl.ai/wheels-test/repo.html
+                git clone 
+                python gen_env_script.py
+                
+                export DGL_GRAPH_FORMAT=csc
+                export DGL_CONF_PATH=/root/data/dgl/examples/pytorch/graphsage/experimental/data/ogb-product.json
+                cd /root/data/dgl/examples/pytorch/graphsage/experimental/
+                export PYTHONPATH=..:$PYTHONPATH
+                python3 -m torch.distributed.launch --nproc_per_node=$DGL_NUM_TRAINER --nnodes=$NUM_MACHINES --node_rank=$MACHINE_ID --master_addr=$MASTER_ADDRESS --master_port=1234 \
+                train_dist.py --graph_name ogb-product --ip_config ip_config.txt --num_epochs 30 --batch_size 1000 & \
+                DGL_ROLE=server DGL_SERVER_ID=$MACHINE_ID \
+                python3 train_dist.py --graph_name ogb-product --ip_config ip_config.txt --num_epochs 30 --batch_size 1000'
+                sleep 1h
+          affinity: # Specify instance type and seperate two pods on to two machines
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: beta.kubernetes.io/instance-type
+                    operator: In
+                    values:
+                    - m5n.24xlarge
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                    - key: dgl-test
+                      operator: In
+                      values:
+                      - dist
+                  topologyKey: kubernetes.io/hostname          
+          tolerations:
+            - key: dgl.ai/dedicated
+              operator: "Exists"
+              effect: "NoSchedule"

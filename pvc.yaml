@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: efs-dist-demo # Change this to the name your perfer
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: efs-sc-dynamic
+  resources:
+    requests:
+      storage: 5Gi # Storage size doesn't matter

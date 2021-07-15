@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: partition-graph
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      serviceAccountName: asvuser
+      restartPolicy: Never
+      containers:
+        - args:
+            - "bash"
+            - "-c"
+            - |
+              pip install --pre dgl -f https://data.dgl.ai/wheels-test/repo.html
+              cd /root/workspace              
+              git clone https://github.com/dmlc/dgl.git
+              cd dgl/examples/pytorch/graphsage/experimental/
+              export PYTHONPATH=$PYTHONPATH:..
+              yes | python3 partition_graph.py --dataset ogb-product --num_parts 4 --balance_train --balance_edges
+              ls -l ./
+              sleep 99d
+          image: public.ecr.aws/s1o7b3d9/benchmakrk_pyg_dgl:cu111_torch180_pyg170
+          imagePullPolicy: Always
+          name: benchmark
+          resources:
+            requests:
+              memory: "32G"
+              cpu: "16"
+            limits:
+              memory: "64G"
+              cpu: "32"
+          volumeMounts:
+          - name: ogbdata
+            mountPath: /data/dataset
+          - name: shared-efs
+            mountPath: /root/workspace
+          - name: dshm
+            mountPath: /dev/shm      
+      volumes:
+      - name: shared-efs
+        persistentVolumeClaim:
+          claimName: efs-dist-demo
+      - name: ogbdata
+        persistentVolumeClaim:
+          claimName: efs-claim
+      - name: dshm
+        emptyDir:
+          medium: Memory
